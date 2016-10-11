@@ -23,7 +23,7 @@ A more detailed specification of the configuration format can be found in the co
 2. Restart Keypirinha to load the plugin.
 3. Open Keypirinha and type `Configure Launchy`. This will open the plugin configuration file for editing in Notepad.
 4. Follow the instructions in the configuration file to add directories to the Keypirinha catalogue. 
-5. ***Optional:*** *This plugin uses the same configuration file format as the orginal Launchy. You can copy your existing Launchy configuration directly over to the plugin.* <br>
+5. ***Optional:*** *Copy your existing Launchy configuration directly over to the plugin. This is possible because the plugin uses the same configuration file format as the orginal Launchy.* <br>
   Find launchy.ini (under `%appdata%\Launchy`) and copy the content of the `[directories]` section. 
 6. Open Keypirinha and type `Refresh Catalogue`. 
 7. Done! The Keypirinha catalogue should now be populated with the additional items specified in the configuration file. 
