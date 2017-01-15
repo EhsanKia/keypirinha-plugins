@@ -36,3 +36,4 @@ If needed, you can use the Keypirinha console to debug your Launchy configuratio
 
 - 1.0: Initial release
 - 1.1: Added support for passing arguments to executables
+- 1.2: Added ability to tab on directories to browse inside
