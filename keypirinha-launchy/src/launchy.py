@@ -13,6 +13,8 @@ class Launchy(kp.Plugin):
     This plugin allows you to populate your catalog the same way you would
     in Launchy. You can simply copy your configuration over and this plugin
     will be able to parse and replicate the same list as in Launchy.
+	
+	Version: 1.2
     """
     def __init__(self):
         super().__init__()
@@ -94,10 +96,27 @@ class Launchy(kp.Plugin):
         self.info(stat_msg.format(catalog_size, elapsed))
 
     def on_suggest(self, user_input, items_chain):
-        if items_chain:
+        if not items_chain:
+            return
+
+        target_path = items_chain[-1].target()
+        if os.path.isdir(target_path):
+            suggestions = [
+                self.create_item(
+                    category=kp.ItemCategory.FILE,
+                    label=subdir,
+                    short_desc="",
+                    target=os.path.join(target_path, subdir),
+                    args_hint=kp.ItemArgsHint.ACCEPTED,
+                    hit_hint=kp.ItemHitHint.KEEPALL,
+                    loop_on_suggest=True)
+                for subdir in os.listdir(target_path)]
+        else:
             clone = items_chain[-1].clone()
             clone.set_args(user_input)
-            self.set_suggestions([clone])
+            suggestions = [clone]
+
+        self.set_suggestions(suggestions)
 
     def on_execute(self, item, action):
         kpu.execute_default_action(self, item, action)
