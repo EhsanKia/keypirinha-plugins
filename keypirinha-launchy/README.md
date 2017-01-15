@@ -16,18 +16,21 @@ specified directories, filter items according to your configuration and add them
 A more detailed specification of the configuration format can be found in the configuration file.
 
 ## Installation
-To install this plugin, simply copy `Launchy.keypirinha-package` from the `build` folder to `InstalledPackages`:
-- Portable version: `Keypirinha\portable\Profile\InstalledPackages`
-- Installed version: `%APPDATA%\Keypirinha\Profile\InstalledPackages`
 
-You may need to restart Keypirinha afterwards to load the plugin.
+1. Copy `Launchy.keypirinha-package` from the `build` folder to `InstalledPackages`:
+  * Portable version: `Keypirinha\portable\Profile\InstalledPackages`
+  * Installed version: `%APPDATA%\Keypirinha\Profile\InstalledPackages`
+2. Restart Keypirinha to load the plugin.
+3. Open Keypirinha and type `Configure Launchy`. This will open the plugin configuration file for editing in Notepad.
+4. Follow the instructions in the configuration file to add directories to the Keypirinha catalogue. 
+5. ***Optional:*** *Copy your existing Launchy configuration directly over to the plugin. This is possible because the plugin uses the same configuration file format as the orginal Launchy.* <br>
+  Find launchy.ini (under `%appdata%\Launchy`) and copy the content of the `[directories]` section. 
+6. Open Keypirinha and type `Refresh Catalogue`. 
+7. Done! The Keypirinha catalogue should now be populated with the additional items specified in the configuration file. 
+  
+## Debugging  
 
-Next, find launchy.ini (under `%appdata%\Launchy`), and copy the content of the `[directories]` section.
-Then configure the Launchy plugin in Keypirinha and paste the config under `[directories]`.
-Finally, refresh your Catalog and the items should appear as you type.
-
-For debugging, you can use the Keypirinha console, which will display errors as well as information
-about how many items were indexed by the Launchy plugin and issues with the configuration.
+If needed, you can use the Keypirinha console to debug your Launchy configuration. The console will display errors as well as information about how many items were indexed.
 
 ## Changelog
 
