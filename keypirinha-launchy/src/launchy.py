@@ -93,6 +93,12 @@ class Launchy(kp.Plugin):
         stat_msg = "Cataloged {} items in {:0.1f} seconds"
         self.info(stat_msg.format(catalog_size, elapsed))
 
+    def on_suggest(self, user_input, items_chain):
+        if items_chain:
+            clone = items_chain[-1].clone()
+            clone.set_args(user_input)
+            self.set_suggestions([clone])
+
     def on_execute(self, item, action):
         kpu.execute_default_action(self, item, action)
 
