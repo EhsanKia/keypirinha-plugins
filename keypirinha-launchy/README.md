@@ -35,3 +35,4 @@ If needed, you can use the Keypirinha console to debug your Launchy configuratio
 ## Changelog
 
 - 1.0: Initial release
+- 1.1: Added support for passing arguments to executables
