@@ -87,7 +87,7 @@ class Steam(kp.Plugin):
             if name:
                 results.append((app.name, name))
             else:
-                failed.append(app)
+                failed.append(app.name)
 
         if failed:
             msg = 'Failed to find {}. Updating applist...'
