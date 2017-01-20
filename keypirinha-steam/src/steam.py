@@ -14,7 +14,7 @@ class Steam(kp.Plugin):
     """
 
     APPLIST_URL = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
-    CATEGORY = kp.ItemCategory.USER_BASE + 27015
+    CATEGORY = kp.ItemCategory.USER_BASE + 1
 
     def __init__(self):
         super().__init__()
