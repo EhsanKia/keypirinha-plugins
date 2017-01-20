@@ -4,3 +4,6 @@ These are made for my own personal use, but shared here for others to use too.
 
 ## [Launchy](keypirinha-launchy/) (click for more info)
 A simple plugin that replicates the indexing of Launchy, using the same configuration format.
+
+## [Steam](keypirinha-steam/) (click for more info)
+A plugin that catalogs installed Steam games and allows you to launch them from Keypirinha.
