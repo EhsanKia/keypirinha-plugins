@@ -34,7 +34,7 @@ class Launchy(kp.Plugin):
                 'types': settings.get_stripped(k + '\\types', 'directories', fallback=''),
                 'depth': settings.get_int(k + '\\depth', 'directories', fallback=0),
                 'indexdirs': settings.get_bool(k + '\\indexdirs', 'directories', fallback=False),
-                'excludedirs': settings.get_stripped(k + '\\exclude_dirs', 'directories', fallback=''),
+                'excludedirs': settings.get_stripped(k + '\\excludedirs', 'directories', fallback=''),
             })
 
         self.settings = settings
