@@ -54,29 +54,33 @@ class Launchy(kp.Plugin):
             return 0
 
         paths = []
-        for glob in config['types'].split(','):
-            if glob.strip() in ['', '@Invalid()']:
-                continue
 
-            self.should_terminate()
-            files = kpu.scan_directory(root_path, name_patterns=glob.strip(),
-                                       flags=kpu.ScanFlags.FILES, max_level=config['depth'])
-            paths.extend(files)
+        conf_dirs = config['indexdirs']
 
-        if config['indexdirs']:
-            exclude = config['excludedirs'].split(',')
+        # Generates a tuple of allowed file types
+        inc_files = config['types'].split(',')
+        if '' in inc_files: inc_files.remove('')
+        if '@Invalid()' in inc_files: inc_files.remove('@Invalid()')
+        inc_files = [i.strip('.*') for i in inc_files]
+        inc_files = tuple(inc_files)
 
-            if exclude == ['']:
-                self.should_terminate()
-                dirs = kpu.scan_directory(root_path, name_patterns='*',
-                                          flags=kpu.ScanFlags.DIRS, max_level=config['depth'])
-                paths.extend(dirs)
-            else:
-                self.should_terminate()
-                dirs = []
-                for walk_root, walk_dirs, walk_files in os.walk(root_path):
-                        if not any(ext in walk_root for ext in exclude):
-                            paths.append(walk_root)
+        # Generates list of forbided strings from direcory paths
+        exclude = config['excludedirs'].split(',')
+        if '' in exclude: exclude.remove('')
+
+        self.should_terminate()
+        # Walks down directory tree adding to paths[]
+        for walk_root, walk_dirs, walk_files in os.walk(root_path):
+                if not any(ext in walk_root for ext in exclude):
+
+                    # If indexing directories add the current directory to the index.
+                    if conf_dirs:
+                        paths.append(walk_root)
+
+                    if inc_files:
+                        for name in walk_files:
+                            if name.endswith(inc_files):
+                                paths.append(os.path.join(walk_root, name))
 
 
         self.merge_catalog([
