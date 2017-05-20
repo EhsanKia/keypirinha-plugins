@@ -135,3 +135,4 @@ class Launchy(kp.Plugin):
     def on_events(self, flags):
         if flags & kp.Events.PACKCONFIG:
             self._update_config()
+            self.on_catalog()
