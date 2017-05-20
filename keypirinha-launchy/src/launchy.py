@@ -13,7 +13,7 @@ class Launchy(kp.Plugin):
     This plugin allows you to populate your catalog the same way you would
     in Launchy. You can simply copy your configuration over and this plugin
     will be able to parse and replicate the same list as in Launchy.
-	
+
 	Version: 1.2
     """
     def __init__(self):
@@ -34,6 +34,7 @@ class Launchy(kp.Plugin):
                 'types': settings.get_stripped(k + '\\types', 'directories', fallback=''),
                 'depth': settings.get_int(k + '\\depth', 'directories', fallback=0),
                 'indexdirs': settings.get_bool(k + '\\indexdirs', 'directories', fallback=False),
+                'excludedirs': settings.get_stripped(k + '\\exclude_dirs', 'directories', fallback=''),
             })
 
         self.settings = settings
@@ -63,10 +64,20 @@ class Launchy(kp.Plugin):
             paths.extend(files)
 
         if config['indexdirs']:
-            self.should_terminate()
-            dirs = kpu.scan_directory(root_path, name_patterns='*',
-                                      flags=kpu.ScanFlags.DIRS, max_level=config['depth'])
-            paths.extend(dirs)
+            exclude = config['excludedirs'].split(',')
+
+            if exclude == ['']:
+                self.should_terminate()
+                dirs = kpu.scan_directory(root_path, name_patterns='*',
+                                          flags=kpu.ScanFlags.DIRS, max_level=config['depth'])
+                paths.extend(dirs)
+            else:
+                self.should_terminate()
+                dirs = []
+                for walk_root, walk_dirs, walk_files in os.walk(root_path):
+                        if not any(ext in walk_root for ext in exclude):
+                            paths.append(walk_root)
+
 
         self.merge_catalog([
             self.create_item(
