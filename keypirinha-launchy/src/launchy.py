@@ -56,6 +56,7 @@ class Launchy(kp.Plugin):
         paths = []
 
         conf_dirs = config['indexdirs']
+        level = config['depth']
 
         # Generates a tuple of allowed file types
         inc_files = config['types'].split(',')
@@ -68,9 +69,19 @@ class Launchy(kp.Plugin):
         exclude = config['excludedirs'].split(',')
         if '' in exclude: exclude.remove('')
 
+        # Gets the max depth from a system level
+        root_path = root_path.rstrip(os.path.sep)
+        assert os.path.isdir(root_path)
+        num_sep = root_path.count(os.path.sep) + 1
+
         self.should_terminate()
         # Walks down directory tree adding to paths[]
         for walk_root, walk_dirs, walk_files in os.walk(root_path):
+
+            # Checks the level is valid
+            num_sep_this = walk_root.count(os.path.sep)
+            if (num_sep + level > num_sep_this) or (level == -1):
+
                 if not any(ext in walk_root for ext in exclude):
 
                     # If indexing directories add the current directory to the index.
