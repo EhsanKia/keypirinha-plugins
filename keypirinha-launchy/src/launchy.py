@@ -42,31 +42,21 @@ class Launchy(kp.Plugin):
         loaded_msg = "Successfully updated the configuration, found {} entries"
         self.info(loaded_msg.format(len(self.dir_configs)))
 
-    def _load_dir(self, i, config):
-        if config['name'] is None:
-            self.warn("No 'name' provided for config #{}".format(i + 1))
-            return 0
-
-        path_name = config['name'].replace('\\\\', '\\')
-        root_path = os.path.expandvars(path_name)
-        if not os.path.exists(root_path):
-            self.warn("Path '{}' in config #{} does not exist".format(path_name, i + 1))
-            return 0
-
-        paths = []
-
-        conf_dirs = config['indexdirs']
-        level = config['depth']
+    def _scan_directory(self, root_path, name_patterns=[], exclude=[], inc_dirs=0, max_level=-1):
+        """
+        This function replaces the scan_directory() function from the api adding
+        the ability to filter by file name as well.
+        """
+        
+        paths=[]
 
         # Generates a tuple of allowed file types
-        inc_files = config['types'].split(',')
-        if '' in inc_files: inc_files.remove('')
-        if '@Invalid()' in inc_files: inc_files.remove('@Invalid()')
-        inc_files = [i.strip('.*') for i in inc_files]
-        inc_files = tuple(inc_files)
+        if '' in name_patterns: name_patterns.remove('')
+        if '@Invalid()' in name_patterns: name_patterns.remove('@Invalid()')
+        name_patterns = [i.strip('.*') for i in name_patterns]
+        name_patterns = tuple(name_patterns)
 
         # Generates list of forbided strings from direcory paths
-        exclude = config['excludedirs'].split(',')
         if '' in exclude: exclude.remove('')
 
         # Gets the max depth from a system level
@@ -80,18 +70,39 @@ class Launchy(kp.Plugin):
 
             # Checks the level is valid
             num_sep_this = walk_root.count(os.path.sep)
-            if (num_sep + level > num_sep_this) or (level == -1):
+            if (num_sep + max_level > num_sep_this) or (max_level == -1):
 
                 if not any(ext in walk_root for ext in exclude):
 
                     # If indexing directories add the current directory to the index.
-                    if conf_dirs:
+                    if inc_dirs:
                         paths.append(walk_root)
 
-                    if inc_files:
+                    if name_patterns:
                         for name in walk_files:
-                            if name.endswith(inc_files):
+                            if name.endswith(name_patterns):
                                 paths.append(os.path.join(walk_root, name))
+
+        return paths
+
+
+    def _load_dir(self, i, config):
+
+        if config['name'] is None:
+            self.warn("No 'name' provided for config #{}".format(i + 1))
+            return 0
+
+        path_name = config['name'].replace('\\\\', '\\')
+        root_path = os.path.expandvars(path_name)
+        if not os.path.exists(root_path):
+            self.warn("Path '{}' in config #{} does not exist".format(path_name, i + 1))
+            return 0
+
+        paths = self._scan_directory(root_path,
+                                     config['types'].split(','),
+                                     config['excludedirs'].split(','),
+                                     config['indexdirs'],
+                                     config['depth'])
 
 
         self.merge_catalog([
