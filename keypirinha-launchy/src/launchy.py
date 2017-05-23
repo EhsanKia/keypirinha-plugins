@@ -42,12 +42,17 @@ class Launchy(kp.Plugin):
         loaded_msg = "Successfully updated the configuration, found {} entries"
         self.info(loaded_msg.format(len(self.dir_configs)))
 
-    def _scan_directory(self, root_path, name_patterns=[], exclude=[], inc_dirs=0, max_level=-1):
+    def _scan_directory(self, root_path, name_patterns=None,  exclude=None, inc_dirs=None, max_level=None):
         """
         This function replaces the scan_directory() function from the api adding
         the ability to filter by file name as well.
         """
         
+        name_patterns = name_patterns or []
+        exclude = exclude or []
+        inc_dirs = inc_dirs or 0
+        max_level = max_level or -1
+
         paths=[]
 
         # Generates a tuple of allowed file types
