@@ -13,7 +13,7 @@ class Launchy(kp.Plugin):
     This plugin allows you to populate your catalog the same way you would
     in Launchy. You can simply copy your configuration over and this plugin
     will be able to parse and replicate the same list as in Launchy.
-	
+
 	Version: 1.2
     """
     def __init__(self):
@@ -34,6 +34,7 @@ class Launchy(kp.Plugin):
                 'types': settings.get_stripped(k + '\\types', 'directories', fallback=''),
                 'depth': settings.get_int(k + '\\depth', 'directories', fallback=0),
                 'indexdirs': settings.get_bool(k + '\\indexdirs', 'directories', fallback=False),
+                'excludedirs': settings.get_stripped(k + '\\excludedirs', 'directories', fallback=''),
             })
 
         self.settings = settings
@@ -41,7 +42,57 @@ class Launchy(kp.Plugin):
         loaded_msg = "Successfully updated the configuration, found {} entries"
         self.info(loaded_msg.format(len(self.dir_configs)))
 
+    def _scan_directory(self, root_path, name_patterns=None,  exclude=None, inc_dirs=None, max_level=None):
+        """
+        This function replaces the scan_directory() function from the api adding
+        the ability to filter by file name as well.
+        """
+        
+        name_patterns = name_patterns or []
+        exclude = exclude or []
+        inc_dirs = inc_dirs or 0
+        max_level = max_level or -1
+
+        paths=[]
+
+        # Generates a tuple of allowed file types
+        if '' in name_patterns: name_patterns.remove('')
+        if '@Invalid()' in name_patterns: name_patterns.remove('@Invalid()')
+        name_patterns = [i.strip('.*') for i in name_patterns]
+        name_patterns = tuple(name_patterns)
+
+        # Generates list of forbided strings from direcory paths
+        if '' in exclude: exclude.remove('')
+
+        # Gets the max depth from a system level
+        root_path = root_path.rstrip(os.path.sep)
+        assert os.path.isdir(root_path)
+        num_sep = root_path.count(os.path.sep) + 1
+
+        self.should_terminate()
+        # Walks down directory tree adding to paths[]
+        for walk_root, walk_dirs, walk_files in os.walk(root_path):
+
+            # Checks the level is valid
+            num_sep_this = walk_root.count(os.path.sep)
+            if (num_sep + max_level > num_sep_this) or (max_level == -1):
+
+                if not any(ext in walk_root for ext in exclude):
+
+                    # If indexing directories add the current directory to the index.
+                    if inc_dirs:
+                        paths.append(walk_root)
+
+                    if name_patterns:
+                        for name in walk_files:
+                            if name.endswith(name_patterns):
+                                paths.append(os.path.join(walk_root, name))
+
+        return paths
+
+
     def _load_dir(self, i, config):
+
         if config['name'] is None:
             self.warn("No 'name' provided for config #{}".format(i + 1))
             return 0
@@ -52,21 +103,12 @@ class Launchy(kp.Plugin):
             self.warn("Path '{}' in config #{} does not exist".format(path_name, i + 1))
             return 0
 
-        paths = []
-        for glob in config['types'].split(','):
-            if glob.strip() in ['', '@Invalid()']:
-                continue
+        paths = self._scan_directory(root_path,
+                                     config['types'].split(','),
+                                     config['excludedirs'].split(','),
+                                     config['indexdirs'],
+                                     config['depth'])
 
-            self.should_terminate()
-            files = kpu.scan_directory(root_path, name_patterns=glob.strip(),
-                                       flags=kpu.ScanFlags.FILES, max_level=config['depth'])
-            paths.extend(files)
-
-        if config['indexdirs']:
-            self.should_terminate()
-            dirs = kpu.scan_directory(root_path, name_patterns='*',
-                                      flags=kpu.ScanFlags.DIRS, max_level=config['depth'])
-            paths.extend(dirs)
 
         self.merge_catalog([
             self.create_item(
@@ -124,3 +166,4 @@ class Launchy(kp.Plugin):
     def on_events(self, flags):
         if flags & kp.Events.PACKCONFIG:
             self._update_config()
+            self.on_catalog()
