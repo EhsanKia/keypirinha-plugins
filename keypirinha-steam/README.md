@@ -10,14 +10,17 @@ This plugin adds installed Steam games to your catalog, letting you launch them 
 The current implemented method uses the registry to get a list of installed games.
 It also fetches a database of game names from the Steam, which it then caches.
 
-The database is a ~3MB download and 1.5MB when processed and saved on disk.
-The plugin will automatically try updating the database if it runs into an app
-which it can't find in the database. It will do so at most once a day.
+Version 2.0 completely reworked the way games are loaded.
+First, to get the list of installed games, the plugin scans the steamapps folder for asf files.
+Next, it loads appinfo.vdf, which contains name and icon information for each owned app.
+Since this file can be very large and slow to load, the plugin will cache this information,
+so unless new games are installed, refreshing the catalog is generally instant.
+
+As for icons, the plugins first tries to fetch them from Steam's icon cache folder,
+and if it doesn't find it, it will download it from the Steam CDN. The plugin keeps
+its own cache of game icons for future uses.
 
 You can also press tab to set launch options on a selected game.
-
-Currently, game icons are not yet supported. A default Steam icon is used for all games.
-I might add per game icons in the future if I find a reliable method to get them.
 
 
 ## Installation
@@ -36,3 +39,4 @@ If needed, you can use the Keypirinha console to debug your Launchy configuratio
 ## Changelog
 
 - 1.0: Initial release
+- 2.0: Complete rewrite of the way games are loaded
