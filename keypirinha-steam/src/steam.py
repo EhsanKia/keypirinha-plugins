@@ -1,64 +1,85 @@
 # Keypirinha launcher (keypirinha.com)
 from .lib import regobj
+from .lib import appinfo
+
 import keypirinha_util as kpu
 import keypirinha_net as kpn
 import keypirinha as kp
+
+import collections
 import time
 import json
 import os
+import re
+
+STEAM_ICON_CDN = "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/apps/{0.id}/{0.icon}"
+App = collections.namedtuple('App', ['id', 'name', 'icon'])
 
 
 class Steam(kp.Plugin):
     """
     Add installed Steam games to your catalog.
+
+    Version: 2.0
     """
 
-    APPLIST_URL = "https://api.steampowered.com/ISteamApps/GetAppList/v2/"
     CATEGORY = kp.ItemCategory.USER_BASE + 1
 
-    def __init__(self):
-        super().__init__()
-        self.applist = None
-
     def on_start(self):
+        # Try to load app cache if there is one
+        self.appcache = {}
         cache_path = self.get_package_cache_path(create=True)
-        applist_path = os.path.join(cache_path, 'applist.json')
-
-        if not os.path.exists(applist_path):
-            self.info('Applist not found, downloading...')
-            self.download_applist()
-
-        with open(applist_path) as fp:
-            self.applist = json.load(fp)
+        appcache_path = os.path.join(cache_path, 'appcache.json')
+        if os.path.exists(appcache_path):
+            with open(appcache_path) as fp:
+                data = json.load(fp)
+            for appid, name, icon in data:
+                self.appcache[appid] = App(appid, name, icon)
 
     def on_catalog(self):
-        items = []
+        try:
+            # Fetch steam installation from registry
+            steam_exe = regobj.HKCU.Software.Valve.Steam['SteamExe'].data
+            steam_path = regobj.HKCU.Software.Valve.Steam['SteamPath'].data
+        except AttributeError:
+            self.error("Steam not found in registry.")
+            return
+
         start_time = time.time()
-        installed_apps = self.apps_from_registry()
 
-        icon_path = "@{},0".format(self.steam_exe)
-        icon_handle = self.load_icon(icon_path)
-        self.set_default_icon(icon_handle)
+        # Set default icon to Steam icon
+        default_icon_path = "@{},0".format(steam_exe)
+        default_icon_handle = self.load_icon(default_icon_path)
+        self.set_default_icon(default_icon_handle)
 
+        # Load and cache icons for all the installed games found
+        installed_apps = self.get_applist(steam_path)
+        icon_dir = os.path.join(steam_path, 'steam', 'games')
+        icons = self.get_icons(installed_apps, icon_dir)
+
+        # Create an item for each game and set catalog
         items = [
             self.create_item(
                 category=self.CATEGORY,
-                label=name,
-                target=appid,
-                data_bag=appid,
+                label=app.name,
+                target=str(app.id),
+                data_bag="{}|{}".format(app.id, steam_exe),
                 short_desc="Launch game",
+                icon_handle=icons.get(app.id),
                 args_hint=kp.ItemArgsHint.ACCEPTED,
                 hit_hint=kp.ItemHitHint.KEEPALL)
-            for appid, name in installed_apps]
-
+            for app in installed_apps]
         self.set_catalog(items)
+
         elapsed = time.time() - start_time
         stat_msg = "Cataloged {} games in {:0.1f} seconds"
         self.info(stat_msg.format(len(items), elapsed))
 
     def on_execute(self, item, action):
-        target = "-applaunch {} {}".format(item.data_bag(), item.raw_args())
-        kpu.shell_execute(self.steam_exe, args=target)
+        # https://developer.valvesoftware.com/wiki/Steam_Application_IDs
+        appid, steam_exe = item.data_bag().split('|', 1)
+        target = "-applaunch {} {}".format(appid, item.raw_args())
+        kpu.shell_execute(steam_exe, args=target)
 
     def on_suggest(self, user_input, items_chain):
         if items_chain:
@@ -66,52 +87,84 @@ class Steam(kp.Plugin):
             clone.set_args(user_input)
             self.set_suggestions([clone])
 
-    def apps_from_registry(self):
-        failed = []
+    def get_applist(self, steam_dir):
+        # Compute some relative paths
+        steamapps_dir = os.path.join(steam_dir, 'steamapps')
+        appinfo_path = os.path.join(steam_dir, 'appcache', 'appinfo.vdf')
+
+        # Scan Steamapps to find all installed games
         results = []
-
-        try:
-            self.steam_exe = regobj.HKCU.Software.Valve.Steam['SteamExe'].data
-            SteamApps = regobj.HKCU.Software.Valve.Steam.Apps
-        except AttributeError:
-            self.error("Steam not found in registry.")
-            return
-
-        for app in SteamApps:
-            if 'Installed' not in app:
+        installed = []
+        for filename in os.listdir(steamapps_dir):
+            match = re.match('appmanifest_(\d+)\.acf', filename)
+            if not match:
                 continue
-            if app['Installed'].data != 1:
+            appid = int(match.group(1))
+            installed.append(appid)
+
+            # If we have the app cached, use that
+            if appid in self.appcache:
+                results.append(self.appcache[appid])
+
+        if len(results) == len(installed):
+            # Since loading appinfo.vdf is expensive, we only do it if needed
+            # We can return if all installed apps were in the cache
+            return results
+
+        # Load appinfo.vdf to extract info about games
+        with open(appinfo_path, 'rb') as fp:
+            data = appinfo.load(fp)
+
+        results = []
+        for appid in installed:
+            info = data.get(appid)
+            if not info:
+                self.warn('Did not find info for {}'.format(appid))
                 continue
 
-            name = self.applist.get(app.name)
-            if name:
-                results.append((app.name, name))
-            else:
-                failed.append(app.name)
+            common = info['sections'][b'appinfo'].get(b'common')
+            if not common or common[b'type'].lower() != b'game':
+                continue
 
-        if failed:
-            msg = 'Failed to find {}. Updating applist...'
-            self.warn(msg.format(', '.join(failed)))
-            self.download_applist()
+            name = common[b'name'].decode('utf-8')
+            icon = common[b'clienticon'].decode('utf-8') + '.ico'
+            app = App(appid, name, icon)
+            results.append(app)
+
+        # Update and save the cache
+        for app in results:
+            self.appcache[app.id] = app
+        cache_path = self.get_package_cache_path(create=True)
+        appcache_path = os.path.join(cache_path, 'appcache.json')
+        with open(appcache_path, 'w') as fp:
+            json.dump(list(self.appcache.values()), fp)
 
         return results
 
-    def download_applist(self):
-        if self.applist and time.time() - self.applist['last_update'] < 60 * 60 * 24:
-            return
-
+    def get_icons(self, apps, icon_dir):
+        icon_handles = {}
         opener = kpn.build_urllib_opener()
-        with opener.open(self.APPLIST_URL) as response:
-            data = json.loads(response.read().decode('utf-8'))
-
-        applist = {}
-        for app in data['applist']['apps']:
-            key = str(app['appid'])
-            applist[key] = app['name']
-
-        applist['last_update'] = time.time()
-
         cache_path = self.get_package_cache_path(create=True)
-        applist_path = os.path.join(cache_path, 'applist.json')
-        with open(applist_path, 'w') as fp:
-            json.dump(applist, fp)
+        for app in apps:
+            icon_source = "cache://{}/{}".format(self.package_full_name(), app.icon)
+            icon_handles[app.id] = self.load_icon(icon_source)
+
+            # First check if we already have the icon in the cache
+            cache_icon = os.path.join(cache_path, app.icon)
+            if os.path.exists(cache_icon):
+                continue
+
+            # If not, check steam's icon cache folder
+            steam_icon = os.path.join(icon_dir, app.icon)
+            if os.path.exists(steam_icon):
+                with open(steam_icon, 'rb') as f1, open(cache_icon, 'wb') as f2:
+                    f2.write(f1.read())
+                continue
+
+            # Last resort, we download and cache the icon
+            icon_url = STEAM_ICON_CDN.format(app)
+            self.info('Downloading icon for {}'.format(app.name))
+            with opener.open(icon_url) as resp, open(cache_icon, 'wb') as fp:
+                fp.write(resp.read())
+
+        return icon_handles
