@@ -1,6 +1,7 @@
 # Keypirinha launcher (keypirinha.com)
-from .lib import regobj
+from .lib import acf
 from .lib import appinfo
+from .lib import regobj
 
 import keypirinha_util as kpu
 import keypirinha_net as kpn
@@ -20,7 +21,7 @@ class Steam(kp.Plugin):
     """
     Add installed Steam games to your catalog.
 
-    Version: 2.0
+    Version: 2.1
     """
 
     CATEGORY = kp.ItemCategory.USER_BASE + 1
@@ -92,19 +93,34 @@ class Steam(kp.Plugin):
         steamapps_dir = os.path.join(steam_dir, 'steamapps')
         appinfo_path = os.path.join(steam_dir, 'appcache', 'appinfo.vdf')
 
-        # Scan Steamapps to find all installed games
+        # Find extra Steam library folders
+        library_list = [steamapps_dir]
+        librarylist_path = os.path.join(steamapps_dir, 'libraryfolders.vdf')
+        try:
+            with open(librarylist_path) as fp:
+                library_data = acf.load(fp)
+            for key, library_root in library_data['LibraryFolders'].items():
+                if not key.isdigit():
+                    continue
+                extra_library = os.path.join(library_root, 'steamapps')
+                library_list.append(extra_library)
+        except Exception as e:
+            self.warn('Failed to extract extra library paths: {}'.format(e))
+
+        # Scan all Steam libraries to find installed games
         results = []
         installed = []
-        for filename in os.listdir(steamapps_dir):
-            match = re.match('appmanifest_(\d+)\.acf', filename)
-            if not match:
-                continue
-            appid = int(match.group(1))
-            installed.append(appid)
+        for library_folder in library_list:
+            for filename in os.listdir(library_folder):
+                match = re.match('appmanifest_(\d+)\.acf', filename)
+                if not match:
+                    continue
+                appid = int(match.group(1))
+                installed.append(appid)
 
-            # If we have the app cached, use that
-            if appid in self.appcache:
-                results.append(self.appcache[appid])
+                # If we have the app cached, use that
+                if appid in self.appcache:
+                    results.append(self.appcache[appid])
 
         if len(results) == len(installed):
             # Since loading appinfo.vdf is expensive, we only do it if needed
