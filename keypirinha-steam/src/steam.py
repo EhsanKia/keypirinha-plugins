@@ -21,7 +21,7 @@ class Steam(kp.Plugin):
     """
     Add installed Steam games to your catalog.
 
-    Version: 2.1
+    Version: 2.2
     """
 
     CATEGORY = kp.ItemCategory.USER_BASE + 1
@@ -142,8 +142,10 @@ class Steam(kp.Plugin):
             if not common or common[b'type'].lower() != b'game':
                 continue
 
+            icon = None
             name = common[b'name'].decode('utf-8')
-            icon = common[b'clienticon'].decode('utf-8') + '.ico'
+            if b'clienticon' in common:
+                icon = common[b'clienticon'].decode('utf-8') + '.ico'
             app = App(appid, name, icon)
             results.append(app)
 
@@ -162,6 +164,9 @@ class Steam(kp.Plugin):
         opener = kpn.build_urllib_opener()
         cache_path = self.get_package_cache_path(create=True)
         for app in apps:
+            if app.icon is None:
+                continue
+
             icon_source = "cache://{}/{}".format(self.package_full_name(), app.icon)
             icon_handles[app.id] = self.load_icon(icon_source)
 
@@ -179,6 +184,7 @@ class Steam(kp.Plugin):
 
             # Last resort, we download and cache the icon
             icon_url = STEAM_ICON_CDN.format(app)
+            self.warn(icon_url)
             self.info('Downloading icon for {}'.format(app.name))
             with opener.open(icon_url) as resp, open(cache_icon, 'wb') as fp:
                 fp.write(resp.read())
