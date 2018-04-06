@@ -21,7 +21,7 @@ class Steam(kp.Plugin):
     """
     Add installed Steam games to your catalog.
 
-    Version: 2.2
+    Version: 2.3
     """
 
     CATEGORY = kp.ItemCategory.USER_BASE + 1
@@ -139,7 +139,7 @@ class Steam(kp.Plugin):
                 continue
 
             common = info['sections'][b'appinfo'].get(b'common')
-            if not common or common[b'type'].lower() != b'game':
+            if not common or common[b'type'].lower() not in [b'game', b'application']:
                 continue
 
             icon = None
