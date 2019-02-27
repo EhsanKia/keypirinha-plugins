@@ -43,3 +43,4 @@ If needed, you can use the Keypirinha console to debug your Launchy configuratio
 - 2.1: Add support for multiple Steam library folders
 - 2.2: Fix bug when a game doesn't have an icon
 - 2.3: Add support for Steam applications
+- 2.4: Fixed issue with Integer game names

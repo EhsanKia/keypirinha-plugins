@@ -21,7 +21,7 @@ class Steam(kp.Plugin):
     """
     Add installed Steam games to your catalog.
 
-    Version: 2.3
+    Version: 2.4
     """
 
     CATEGORY = kp.ItemCategory.USER_BASE + 1
@@ -112,7 +112,7 @@ class Steam(kp.Plugin):
         installed = []
         for library_folder in library_list:
             for filename in os.listdir(library_folder):
-                match = re.match('appmanifest_(\d+)\.acf', filename)
+                match = re.match(r'appmanifest_(\d+)\.acf', filename)
                 if not match:
                     continue
                 appid = int(match.group(1))
@@ -143,10 +143,15 @@ class Steam(kp.Plugin):
                 continue
 
             icon = None
-            name = common[b'name'].decode('utf-8')
             if b'clienticon' in common:
                 icon = common[b'clienticon'].decode('utf-8') + '.ico'
-            app = App(appid, name, icon)
+
+            if isinstance(common[b'name'], appinfo.Integer):
+                decoded_name = str(common[b'name'])
+            else:
+                decoded_name = common[b'name'].decode('utf-8')
+
+            app = App(appid, decoded_name, icon)
             results.append(app)
 
         # Update and save the cache

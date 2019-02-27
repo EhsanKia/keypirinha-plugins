@@ -203,7 +203,7 @@ class AppinfoDecoder:
         # This method is pretty fast, provided we iterate over a memoryview.
         # It's also easier to read then the most performant ones, which is more important.
         for index, value in enumerate(self.data[self.offset:]):
-            # NUL-byte – a string's end
+            # NULL-byte -> a string's end
             if value != 0:
                 continue
 
