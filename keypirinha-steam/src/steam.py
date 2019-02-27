@@ -147,7 +147,7 @@ class Steam(kp.Plugin):
                 icon = common[b'clienticon'].decode('utf-8') + '.ico'
 
             if isinstance(common[b'name'], appinfo.Integer):
-                decoded_name = str(common[b'name'])
+                decoded_name = str(common[b'name'].data)
             else:
                 decoded_name = common[b'name'].decode('utf-8')
 
