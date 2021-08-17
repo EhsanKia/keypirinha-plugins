@@ -111,6 +111,9 @@ class Steam(kp.Plugin):
         results = []
         installed = []
         for library_folder in library_list:
+            if self.should_terminate():
+                return results
+
             for filename in os.listdir(library_folder):
                 match = re.match(r'appmanifest_(\d+)\.acf', filename)
                 if not match:
@@ -122,7 +125,7 @@ class Steam(kp.Plugin):
                 if appid in self.appcache:
                     results.append(self.appcache[appid])
 
-        if len(results) == len(installed):
+        if len(results) == len(installed) or self.should_terminate():
             # Since loading appinfo.vdf is expensive, we only do it if needed
             # We can return if all installed apps were in the cache
             return results
@@ -133,6 +136,9 @@ class Steam(kp.Plugin):
 
         results = []
         for appid in installed:
+            if self.should_terminate():
+                return results
+
             info = data.get(appid)
             if not info:
                 self.warn('Did not find info for {}'.format(appid))

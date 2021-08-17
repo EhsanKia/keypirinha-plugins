@@ -14,7 +14,7 @@ class Launchy(kp.Plugin):
     in Launchy. You can simply copy your configuration over and this plugin
     will be able to parse and replicate the same list as in Launchy.
 
-	Version: 1.2
+    Version: 1.2
     """
     def __init__(self):
         super().__init__()
@@ -47,7 +47,7 @@ class Launchy(kp.Plugin):
         This function replaces the scan_directory() function from the api adding
         the ability to filter by file name as well.
         """
-        
+
         name_patterns = name_patterns or []
         exclude = exclude or []
         inc_dirs = inc_dirs or 0
@@ -69,9 +69,10 @@ class Launchy(kp.Plugin):
         assert os.path.isdir(root_path)
         num_sep = root_path.count(os.path.sep) + 1
 
-        self.should_terminate()
         # Walks down directory tree adding to paths[]
         for walk_root, walk_dirs, walk_files in os.walk(root_path):
+            if self.should_terminate():
+                return paths
 
             # Checks the level is valid
             num_sep_this = walk_root.count(os.path.sep)
@@ -113,7 +114,7 @@ class Launchy(kp.Plugin):
         self.merge_catalog([
             self.create_item(
                 category=kp.ItemCategory.FILE,
-                label=os.path.basename(path),
+                label=os.path.basename(path) or path,
                 short_desc="",
                 target=os.path.join(root_path, path),
                 args_hint=kp.ItemArgsHint.ACCEPTED,
