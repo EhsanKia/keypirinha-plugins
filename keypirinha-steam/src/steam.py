@@ -17,6 +17,13 @@ STEAM_ICON_CDN = "https://steamcdn-a.akamaihd.net/steamcommunity/public/images/a
 App = collections.namedtuple('App', ['id', 'name', 'icon'])
 
 
+class LowerKeyDict(dict):
+
+    def __setitem__(self, key, value):
+        key = key.lower() if isinstance(key, str) else key
+        super().__setitem__(key, value)
+
+
 class Steam(kp.Plugin):
     """
     Add installed Steam games to your catalog.
@@ -98,11 +105,12 @@ class Steam(kp.Plugin):
         librarylist_path = os.path.join(steamapps_dir, 'libraryfolders.vdf')
         try:
             with open(librarylist_path) as fp:
-                library_data = acf.load(fp)
-            for key, library_root in library_data['LibraryFolders'].items():
+                library_data = acf.load(fp, wrapper=LowerKeyDict)
+            for key, root in library_data['libraryfolders'].items():
                 if not key.isdigit():
                     continue
-                extra_library = os.path.join(library_root, 'steamapps')
+                steam_root = root if isinstance(root, str) else root['path']
+                extra_library = os.path.join(steam_root, 'steamapps')
                 library_list.append(extra_library)
         except Exception as e:
             self.warn('Failed to extract extra library paths: {}'.format(e))
