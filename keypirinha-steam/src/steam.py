@@ -99,10 +99,10 @@ class Steam(kp.Plugin):
         try:
             with open(librarylist_path) as fp:
                 library_data = acf.load(fp)
-            for key, library_root in library_data['LibraryFolders'].items():
+            for key, library_root in library_data['libraryfolders'].items():
                 if not key.isdigit():
                     continue
-                extra_library = os.path.join(library_root, 'steamapps')
+                extra_library = os.path.join(library_root['path'], 'steamapps')
                 library_list.append(extra_library)
         except Exception as e:
             self.warn('Failed to extract extra library paths: {}'.format(e))
