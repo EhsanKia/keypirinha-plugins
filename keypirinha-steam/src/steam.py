@@ -1,6 +1,6 @@
 # Keypirinha launcher (keypirinha.com)
 from .lib import acf
-from .lib import appinfo
+from .lib import appcache
 from .lib import regobj
 
 import keypirinha_util as kpu
@@ -28,7 +28,7 @@ class Steam(kp.Plugin):
     """
     Add installed Steam games to your catalog.
 
-    Version: 2.4
+    Version: 2.5
     """
 
     CATEGORY = kp.ItemCategory.USER_BASE + 1
@@ -140,9 +140,9 @@ class Steam(kp.Plugin):
 
         # Load appinfo.vdf to extract info about games
         with open(appinfo_path, 'rb') as fp:
-            data = appinfo.load(fp)
+            _, steamapps = appcache.parse_appinfo(fp)
+            data = {app['appid']: app for app in steamapps}
 
-        results = []
         for appid in installed:
             if self.should_terminate():
                 return results
@@ -152,20 +152,15 @@ class Steam(kp.Plugin):
                 self.warn('Did not find info for {}'.format(appid))
                 continue
 
-            common = info['sections'][b'appinfo'].get(b'common')
-            if not common or common[b'type'].lower() not in [b'game', b'application']:
+            common = info['data']['appinfo'].get('common')
+            if not common or common['type'].lower() not in ['game', 'application']:
                 continue
 
             icon = None
-            if b'clienticon' in common:
-                icon = common[b'clienticon'].decode('utf-8') + '.ico'
+            if 'clienticon' in common:
+                icon = common['clienticon'] + '.ico'
 
-            if isinstance(common[b'name'], appinfo.Integer):
-                decoded_name = str(common[b'name'].data)
-            else:
-                decoded_name = common[b'name'].decode('utf-8')
-
-            app = App(appid, decoded_name, icon)
+            app = App(appid, common['name'], icon)
             results.append(app)
 
         # Update and save the cache
