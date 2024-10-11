@@ -28,7 +28,7 @@ class Steam(kp.Plugin):
     """
     Add installed Steam games to your catalog.
 
-    Version: 2.5
+    Version: 2.6
     """
 
     CATEGORY = kp.ItemCategory.USER_BASE + 1
@@ -140,7 +140,7 @@ class Steam(kp.Plugin):
 
         # Load appinfo.vdf to extract info about games
         with open(appinfo_path, 'rb') as fp:
-            _, steamapps = appcache.parse_appinfo(fp)
+            _, steamapps = appcache.parse_appinfo(fp, dict)
             data = {app['appid']: app for app in steamapps}
 
         for appid in installed:
