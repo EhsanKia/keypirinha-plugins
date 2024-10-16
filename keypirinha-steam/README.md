@@ -48,4 +48,5 @@ Updated appinfo parser and support libraries from https://github.com/solsticegam
 - 2.2: Fix bug when a game doesn't have an icon
 - 2.3: Add support for Steam applications
 - 2.4: Fixed issue with Integer game names
+- 2.5: Update appinfo parsing library to support v28 format
 - 2.6: Updated various libraries top be able to parse appinfo.vdf v29 format
