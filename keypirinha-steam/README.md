@@ -36,6 +36,10 @@ You can also press tab to set launch options on a selected game.
 If needed, you can use the Keypirinha console to debug your Launchy configuration. The console will display errors as well as information about how many games were indexed.
 
 
+## Acknowledgements
+Updated appinfo parser and support libraries from https://github.com/solsticegamestudios/steam, which is a fork of https://github.com/ValvePython/steam
+
+
 ## Changelog
 
 - 1.0: Initial release
@@ -44,3 +48,5 @@ If needed, you can use the Keypirinha console to debug your Launchy configuratio
 - 2.2: Fix bug when a game doesn't have an icon
 - 2.3: Add support for Steam applications
 - 2.4: Fixed issue with Integer game names
+- 2.5: Update appinfo parsing library to support v28 format
+- 2.6: Updated various libraries top be able to parse appinfo.vdf v29 format

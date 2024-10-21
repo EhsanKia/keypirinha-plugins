@@ -1,40 +1,22 @@
 """
 Module for deserializing/serializing to and from VDF
 """
-__version__ = "3.4"
-__author__ = "Rossen Georgiev"
+__version__ = "4.0"
+__author__ = "Rossen Georgiev / Solstice Game Studios"
 
 import re
-import sys
 import struct
+import sys
 from binascii import crc32
-from io import BytesIO
-from io import StringIO as unicodeIO
-
-try:
-    from collections.abc import Mapping
-except:
-    from collections import Mapping
+from collections.abc import Mapping
+from io import BytesIO, StringIO
 
 from .vdict import VDFDict
 
-# Py2 & Py3 compatibility
-if sys.version_info[0] >= 3:
-    string_type = str
-    int_type = int
-    BOMS = '\ufffe\ufeff'
+BOMS = '\ufffe\ufeff'
 
-    def strip_bom(line):
-        return line.lstrip(BOMS)
-else:
-    from StringIO import StringIO as strIO
-    string_type = basestring
-    int_type = long
-    BOMS = '\xef\xbb\xbf\xff\xfe\xfe\xff'
-    BOMS_UNICODE = '\\ufffe\\ufeff'.decode('unicode-escape')
-
-    def strip_bom(line):
-        return line.lstrip(BOMS if isinstance(line, str) else BOMS_UNICODE)
+def strip_bom(line):
+    return line.lstrip(BOMS)
 
 # string escaping
 _unescape_char_map = {
@@ -78,6 +60,7 @@ def parse(fp, mapper=dict, merge_duplicate_keys=True, escaped=True):
     same key into one instead of overwriting. You can se this to ``False`` if you are
     using ``VDFDict`` and need to preserve the duplicates.
     """
+    mapper = dict if mapper is None else mapper
     if not issubclass(mapper, Mapping):
         raise TypeError("Expected mapper to be subclass of dict, got %s" % type(mapper))
     if not hasattr(fp, 'readline'):
@@ -86,10 +69,10 @@ def parse(fp, mapper=dict, merge_duplicate_keys=True, escaped=True):
     stack = [mapper()]
     expect_bracket = False
 
-    re_keyvalue = re.compile(r'^("(?P<qkey>(?:\\.|[^\\"])*)"|(?P<key>#?[a-z0-9\-\_\\\?$%<>]+))'
+    re_keyvalue = re.compile(r'^("(?P<qkey>(?:\\.|[^\\"])*)"|(?P<key>#?[a-z0-9\-\_\\\?\+$%<>]+))'
                              r'([ \t]*('
                              r'"(?P<qval>(?:\\.|[^\\"])*)(?P<vq_end>")?'
-                             r'|(?P<val>(?:(?<!/)/(?!/)|[a-z0-9\-\_\\\?\*\.$<> ])+)'
+                             r'|(?P<val>(?:(?<!/)/(?!/)|[a-z0-9\-\_\\\?\*\.\|$<> ])+)'
                              r'|(?P<sblock>{[ \t]*)(?P<eblock>})?'
                              r'))?',
                              flags=re.I)
@@ -192,13 +175,13 @@ def loads(s, **kwargs):
     Deserialize ``s`` (a ``str`` or ``unicode`` instance containing a JSON
     document) to a Python object.
     """
-    if not isinstance(s, string_type):
+    if not isinstance(s, str):
         raise TypeError("Expected s to be a str, got %s" % type(s))
 
     try:
-        fp = unicodeIO(s)
+        fp = StringIO(s)
     except TypeError:
-        fp = strIO(s)
+        fp = BytesIO(s)
 
     return parse(fp, **kwargs)
 
@@ -211,7 +194,7 @@ def load(fp, **kwargs):
     return parse(fp, **kwargs)
 
 
-def dumps(obj, pretty=False, escaped=True):
+def dumps(obj, pretty=False, escaped=True, acf=False):
     """
     Serialize ``obj`` to a VDF formatted ``str``.
     """
@@ -222,10 +205,10 @@ def dumps(obj, pretty=False, escaped=True):
     if not isinstance(escaped, bool):
         raise TypeError("Expected escaped to be of type bool")
 
-    return ''.join(_dump_gen(obj, pretty, escaped))
+    return ''.join(_dump_gen(obj, pretty, escaped, acf))
 
 
-def dump(obj, fp, pretty=False, escaped=True):
+def dump(obj, fp, pretty=False, escaped=True, acf=False):
     """
     Serialize ``obj`` as a VDF formatted stream to ``fp`` (a
     ``.write()``-supporting file-like object).
@@ -239,35 +222,38 @@ def dump(obj, fp, pretty=False, escaped=True):
     if not isinstance(escaped, bool):
         raise TypeError("Expected escaped to be of type bool")
 
-    for chunk in _dump_gen(obj, pretty, escaped):
+    for chunk in _dump_gen(obj, pretty, escaped, acf):
         fp.write(chunk)
 
 
-def _dump_gen(data, pretty=False, escaped=True, level=0):
+def _dump_gen(data, pretty=False, escaped=True, acf=False, level=0):
     indent = "\t"
     line_indent = ""
+    val_sep = " "
 
     if pretty:
         line_indent = indent * level
 
+    if acf:
+        val_sep = "\t\t"
+
     for key, value in data.items():
-        if escaped and isinstance(key, string_type):
+        if escaped and isinstance(key, str):
             key = _escape(key)
 
         if isinstance(value, Mapping):
-            yield '%s"%s"\n%s{\n' % (line_indent, key, line_indent)
-            for chunk in _dump_gen(value, pretty, escaped, level+1):
-                yield chunk
+            yield '{}"{}"\n{}{{\n'.format(line_indent, key, line_indent)
+            yield from _dump_gen(value, pretty, escaped, acf, level+1)
             yield "%s}\n" % line_indent
         else:
-            if escaped and isinstance(value, string_type):
+            if escaped and isinstance(value, str):
                 value = _escape(value)
 
-            yield '%s"%s" "%s"\n' % (line_indent, key, value)
+            yield '{}"{}"{}"{}"\n'.format(line_indent, key, val_sep, value)
 
 
 # binary VDF
-class BASE_INT(int_type):
+class BASE_INT(int):
     def __repr__(self):
         return "%s(%d)" % (self.__class__.__name__, self)
 
@@ -295,7 +281,7 @@ BIN_END         = b'\x08'
 BIN_INT64       = b'\x0A'
 BIN_END_ALT     = b'\x0B'
 
-def binary_loads(b, mapper=dict, merge_duplicate_keys=True, alt_format=False, raise_on_remaining=True):
+def binary_loads(b, mapper=dict, merge_duplicate_keys=True, alt_format=False, key_table=None, raise_on_remaining=True):
     """
     Deserialize ``b`` (``bytes`` containing a VDF in "binary form")
     to a Python object.
@@ -307,13 +293,19 @@ def binary_loads(b, mapper=dict, merge_duplicate_keys=True, alt_format=False, ra
     ``merge_duplicate_keys`` when ``True`` will merge multiple KeyValue lists with the
     same key into one instead of overwriting. You can se this to ``False`` if you are
     using ``VDFDict`` and need to preserve the duplicates.
+
+    ``key_table`` will be used to translate keys in binary VDF objects
+    which do not encode strings directly but instead store them in an out-of-band
+    table. Newer `appinfo.vdf` format stores this table the end of the file,
+    and it is needed to deserialize the binary VDF objects in that file.
     """
+    mapper = dict if mapper is None else mapper
     if not isinstance(b, bytes):
         raise TypeError("Expected s to be bytes, got %s" % type(b))
 
-    return binary_load(BytesIO(b), mapper, merge_duplicate_keys, alt_format, raise_on_remaining)
+    return binary_load(BytesIO(b), mapper, merge_duplicate_keys, alt_format, key_table, raise_on_remaining)
 
-def binary_load(fp, mapper=dict, merge_duplicate_keys=True, alt_format=False, raise_on_remaining=False):
+def binary_load(fp, mapper=dict, merge_duplicate_keys=True, alt_format=False, key_table=None, raise_on_remaining=False):
     """
     Deserialize ``fp`` (a ``.read()``-supporting file-like object containing
     binary VDF) to a Python object.
@@ -325,6 +317,11 @@ def binary_load(fp, mapper=dict, merge_duplicate_keys=True, alt_format=False, ra
     ``merge_duplicate_keys`` when ``True`` will merge multiple KeyValue lists with the
     same key into one instead of overwriting. You can se this to ``False`` if you are
     using ``VDFDict`` and need to preserve the duplicates.
+
+    ``key_table`` will be used to translate keys in binary VDF objects
+    which do not encode strings directly but instead store them in an out-of-band
+    table. Newer `appinfo.vdf` format stores this table the end of the file,
+    and it is needed to deserialize the binary VDF objects in that file.
     """
     if not hasattr(fp, 'read') or not hasattr(fp, 'tell') or not hasattr(fp, 'seek'):
         raise TypeError("Expected fp to be a file-like object with tell()/seek() and read() returning bytes")
@@ -382,7 +379,15 @@ def binary_load(fp, mapper=dict, merge_duplicate_keys=True, alt_format=False, ra
                 continue
             break
 
-        key = read_string(fp)
+        if key_table:
+            # If 'key_table' was provided, each key is an int32 value that
+            # needs to be mapped to an actual field name using a key table.
+            # Newer appinfo.vdf (V29+) stores this table at the end of the file.
+            index = int32.unpack(fp.read(int32.size))[0]
+
+            key = key_table[index]
+        else:
+            key = read_string(fp)
 
         if t == BIN_NONE:
             if merge_duplicate_keys and key in stack[-1]:
@@ -451,20 +456,19 @@ def _binary_dump_gen(obj, level=0, alt_format=False):
     float32 = struct.Struct('<f')
 
     for key, value in obj.items():
-        if isinstance(key, string_type):
+        if isinstance(key, str):
             key = key.encode('utf-8')
         else:
             raise TypeError("dict keys must be of type str, got %s" % type(key))
 
         if isinstance(value, Mapping):
             yield BIN_NONE + key + BIN_NONE
-            for chunk in _binary_dump_gen(value, level+1, alt_format=alt_format):
-                yield chunk
+            yield from _binary_dump_gen(value, level+1, alt_format=alt_format)
         elif isinstance(value, UINT_64):
             yield BIN_UINT64 + key + BIN_NONE + uint64.pack(value)
         elif isinstance(value, INT_64):
             yield BIN_INT64 + key + BIN_NONE + int64.pack(value)
-        elif isinstance(value, string_type):
+        elif isinstance(value, str):
             try:
                 value = value.encode('utf-8') + BIN_NONE
                 yield BIN_STRING
@@ -474,7 +478,7 @@ def _binary_dump_gen(obj, level=0, alt_format=False):
             yield key + BIN_NONE + value
         elif isinstance(value, float):
             yield BIN_FLOAT32 + key + BIN_NONE + float32.pack(value)
-        elif isinstance(value, (COLOR, POINTER, int, int_type)):
+        elif isinstance(value, (COLOR, POINTER, int)):
             if isinstance(value, COLOR):
                 yield BIN_COLOR
             elif isinstance(value, POINTER):
